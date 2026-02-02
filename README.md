@@ -92,7 +92,7 @@ This repository covers the following rate limiting algorithms:
 Code examples are provided in multiple languages:
 
 - [**Typescript**](./implementations/typescript): Express middleware, Redis-based
-- [**Python**](./implementations/typescript): Using Redis, in-memory implementations
+- [**Python**](./implementations/python): Using Redis, in-memory implementations
 
 
 Each implementation includes:
