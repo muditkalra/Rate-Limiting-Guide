@@ -27,6 +27,8 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@types/benchmark": "^2.1.5",
+    "benchmark": "^2.1.4",
     "redis": "^4.6.0"
   },
   "devDependencies": {

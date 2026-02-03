@@ -5,7 +5,6 @@
  */
 
 import express from 'express';
-import axios from 'axios';
 import { TokenBucketLimiter, SlidingWindowCounterLimiter } from '../../implementations/typescript/rate-limiter';
 
 // ============================================================================
@@ -29,9 +28,9 @@ function getServiceLimiter(serviceId: string): TokenBucketLimiter {
 userServiceApp.use((req, res, next) => {
   const serviceId = req.headers['x-service-id'] as string || 'unknown';
   const limiter = getServiceLimiter(serviceId);
-  
+
   const result = limiter.allowRequest();
-  
+
   if (!result.allowed) {
     return res.status(429).json({
       error: 'Service rate limit exceeded',
@@ -39,7 +38,7 @@ userServiceApp.use((req, res, next) => {
       retryAfter: result.retryAfter
     });
   }
-  
+
   next();
 });
 
@@ -52,11 +51,11 @@ const users = new Map([
 
 userServiceApp.get('/users/:id', (req, res) => {
   const user = users.get(req.params.id);
-  
+
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
-  
+
   res.json(user);
 });
 
@@ -92,7 +91,7 @@ class CircuitBreaker {
     } catch (error) {
       this.failures++;
       this.lastFailureTime = Date.now();
-      
+
       if (this.failures >= this.threshold) {
         this.isOpen = true;
       }
@@ -115,13 +114,12 @@ async function fetchUserData(userId: string) {
 
   // Use circuit breaker
   return await userServiceCircuitBreaker.execute(async () => {
-    const response = await axios.get(`http://localhost:3001/users/${userId}`, {
+    const response = await fetch(`http://localhost:3001/users/${userId}`, {
       headers: {
         'X-Service-Id': 'order-service'
       },
-      timeout: 5000
     });
-    return response.data;
+    return (await response.json()).data;
   });
 }
 
@@ -133,7 +131,7 @@ const orders = new Map([
 
 orderServiceApp.get('/orders/:id', async (req, res) => {
   const order = orders.get(req.params.id);
-  
+
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -141,14 +139,14 @@ orderServiceApp.get('/orders/:id', async (req, res) => {
   try {
     // Fetch user data from User Service
     const user = await fetchUserData(order.userId);
-    
+
     res.json({
       ...order,
       user
     });
   } catch (error: any) {
     console.error('Error fetching user:', error.message);
-    
+
     // Return order without user data
     res.json({
       ...order,
@@ -179,31 +177,32 @@ function getUserLimiter(userId: string): SlidingWindowCounterLimiter {
 gatewayApp.use((req, res, next) => {
   const userId = req.headers['x-user-id'] as string || 'anonymous';
   const limiter = getUserLimiter(userId);
-  
+
   const result = limiter.allowRequest();
-  
+
   // Set rate limit headers
   res.setHeader('X-RateLimit-Limit', result.limit);
   res.setHeader('X-RateLimit-Remaining', result.remaining);
   res.setHeader('X-RateLimit-Reset', Math.ceil(result.resetAt / 1000));
-  
+
   if (!result.allowed) {
     return res.status(429).json({
       error: 'Rate limit exceeded',
       retryAfter: result.retryAfter
     });
   }
-  
+
   next();
 });
 
 // Proxy to services
 gatewayApp.get('/api/users/:id', async (req, res) => {
   try {
-    const response = await axios.get(`http://localhost:3001/users/${req.params.id}`, {
+    const response = await fetch(`http://localhost:3001/users/${req.params.id}`, {
       headers: { 'X-Service-Id': 'api-gateway' }
     });
-    res.json(response.data);
+    const data = await response.json()
+    res.json(data);
   } catch (error: any) {
     if (error.response?.status === 429) {
       return res.status(503).json({ error: 'Service temporarily unavailable' });
@@ -214,10 +213,11 @@ gatewayApp.get('/api/users/:id', async (req, res) => {
 
 gatewayApp.get('/api/orders/:id', async (req, res) => {
   try {
-    const response = await axios.get(`http://localhost:3002/orders/${req.params.id}`, {
+    const response = await fetch(`http://localhost:3002/orders/${req.params.id}`, {
       headers: { 'X-Service-Id': 'api-gateway' }
     });
-    res.json(response.data);
+    const data = await response.json();
+    res.json(data);
   } catch (error: any) {
     if (error.response?.status === 429) {
       return res.status(503).json({ error: 'Service temporarily unavailable' });
