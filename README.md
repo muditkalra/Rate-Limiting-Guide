@@ -200,7 +200,7 @@ See [Testing Guide](./docs/testing.md) for examples.
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Contributions are welcome **(Need more Python implementations)**
 
 ## License
 
